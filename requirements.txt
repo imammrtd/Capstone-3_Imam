@@ -1,7 +1,7 @@
 pip>=25.0
 setuptools>=70.0
 wheel
-tiktoken==0.7.0
+tiktoken==0.8.0
 streamlit
 pandas
 qdrant-client
