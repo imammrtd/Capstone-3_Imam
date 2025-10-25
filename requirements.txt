@@ -4,8 +4,8 @@ wheel
 tiktoken==0.7.0
 streamlit
 pandas
-openai
 qdrant-client
+openai
 langchain
 langchain-core
 langchain-openai
