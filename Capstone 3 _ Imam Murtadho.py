@@ -43,7 +43,7 @@ except Exception as e:
     st.warning(f"Error accessing collection: {e}")
     st.info("Collection not found. uploading data from CSV...")
     try:
-        df = pd.read_csv('imdb_top_1000.csv')  # Pastikan file ada
+        df = pd.read_csv('imdb_top_1000.csv')  
         print("CSV loaded successfully!")
     except FileNotFoundError:
         st.error("File 'imdb_top_1000.csv' not found. Please download the IMDb dataset.")
@@ -53,9 +53,10 @@ except Exception as e:
     documents = []
     for _, row in df.iterrows():
         content = f"Title: {row['Series_Title']}, Year: {row['Released_Year']}, Genre: {row['Genre']}, Rating: {row['IMDB_Rating']}, Overview: {row['Overview']}"
-        documents.append(Document(page_content=content, metadata={"title": row['Series_Title']}))  # Pastikan Document defined
+        documents.append(Document(page_content=content, metadata={"title": row['Series_Title']})) 
     
     print(f"Uploading {len(documents)} documents...")
+
     # Upload ke Qdrant
     qdrant = QdrantVectorStore.from_documents(
         documents=documents,
