@@ -9,6 +9,7 @@ from langgraph.prebuilt import create_react_agent
 from langchain_core.messages import ToolMessage
 from langchain_core.documents import Document
 import pandas as pd
+import matplotlib.pyplot as plt
 
 # Secrets
 QDRANT_URL = st.secrets["QDRANT_URL"]
@@ -122,6 +123,23 @@ if os.path.exists(header_path):
 else:
     st.warning("Header image not found.")
 
+# Movie Analytics Dashboard
+tab1, tab2 = st.tabs(["Chat", "Analytics"])
+
+with tab2:
+    st.header("Movie Analytics Dashboard")
+    st.markdown("Average IMDB Rating per Genre (Top 10)")
+    try:
+        avg_rating = df.groupby("Genre")["IMDB_Rating"].mean().sort_values(ascending=False).head(10)
+        plt.figure(figsize=(8, 4))
+        plt.barh(avg_rating.index, avg_rating.values)
+        plt.xlabel("Average Rating")
+        plt.ylabel("Genre")
+        plt.gca().invert_yaxis()
+        st.pyplot(plt)
+    except Exception as e:
+        st.write(f"⚠️ Error loading analytics: {e}")
+
 
 # Chat history
 if "messages" not in st.session_state:
@@ -133,6 +151,14 @@ for message in st.session_state.messages:
 
 # User input
 if prompt := st.chat_input("Ask me movie questions"):
+    # Tone Detection
+    sentiment_prompt = f"Analyze the tone of this message: '{prompt}'. Reply with one word only: Positive, Neutral, or Confused."
+    try:
+        tone = llm.invoke(sentiment_prompt).content
+    except Exception:
+        tone = "Unknown"
+    st.caption(f"🗣️ User tone detected: {tone}")
+
     messages_history = st.session_state.get("messages", [])[-20:]
     history = "\n".join([f'{msg["role"]}: {msg["content"]}' for msg in messages_history]) or " "
 
@@ -145,6 +171,16 @@ if prompt := st.chat_input("Ask me movie questions"):
         answer = response["answer"]
         st.markdown(answer)
         st.session_state.messages.append({"role": "AI", "content": answer})
+    
+    # Recommended Similar Movies
+        st.subheader("Recommended Similar Movies")
+        main_keyword = prompt.split()[0]
+        try:
+            similar_movies = qdrant.similarity_search(main_keyword, k=5)
+            for doc in similar_movies:
+                st.write(f"- {doc.page_content}")
+        except Exception as e:
+            st.warning(f"⚠️ Could not fetch recommendations: {e}")
 
     with st.expander("**Movie Tool Calls:**"):
         st.code(response["tool_messages"])
