@@ -123,14 +123,92 @@ if os.path.exists(header_path):
 else:
     st.warning("Header image not found.")
 
-# Movie Analytics Dashboard
+# Load dataset untuk Analytics
+df = pd.read_csv("imdb_top_1000.csv")
+
+# Buat Tabs
 tab1, tab2 = st.tabs(["Chat", "Analytics"])
 
+# TAB 1: CHATBOT
+with tab1:
+    st.header("Movie Master Chatbot")
+    st.markdown("Ask me anything about IMDb movies!")
+
+    # Chat history
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    # User input
+    if prompt := st.chat_input("Ask me movie questions"):
+        # Tone Detection
+        sentiment_prompt = (
+            f"Analyze the tone of this message: '{prompt}'. "
+            "Reply with one word only: Positive, Neutral, or Confused."
+        )
+        try:
+            tone = llm.invoke(sentiment_prompt).content
+        except Exception:
+            tone = "Unknown"
+        st.caption(f"User tone detected: {tone}")
+
+        # Chat history context
+        messages_history = st.session_state.get("messages", [])[-20:]
+        history = (
+            "\n".join(
+                [f'{msg["role"]}: {msg["content"]}' for msg in messages_history]
+            )
+            or " "
+        )
+
+        with st.chat_message("Human"):
+            st.markdown(prompt)
+        st.session_state.messages.append({"role": "Human", "content": prompt})
+
+        with st.chat_message("AI"):
+            response = chat_movie(prompt, history)
+            answer = response["answer"]
+            st.markdown(answer)
+            st.session_state.messages.append({"role": "AI", "content": answer})
+
+            # Recommended Similar Movies
+            st.subheader("Recommended Similar Movies")
+            main_keyword = prompt.split()[0]
+            try:
+                similar_movies = qdrant.similarity_search(main_keyword, k=5)
+                for doc in similar_movies:
+                    st.write(f"- {doc.page_content}")
+            except Exception as e:
+                st.warning(f"Could not fetch recommendations: {e}")
+
+        # Expanders for debug/info
+        with st.expander("**Movie Tool Calls:**"):
+            st.code(response["tool_messages"])
+
+        with st.expander("**Movie Chat History:**"):
+            st.code(history)
+
+        with st.expander("**Token Usage Details:**"):
+            st.code(
+                f'input token : {response["total_input_tokens"]}\n'
+                f'output token : {response["total_output_tokens"]}'
+            )
+
+# TAB 2: ANALYTICS
 with tab2:
     st.header("Movie Analytics Dashboard")
     st.markdown("Average IMDB Rating per Genre (Top 10)")
+
     try:
-        avg_rating = df.groupby("Genre")["IMDB_Rating"].mean().sort_values(ascending=False).head(10)
+        avg_rating = (
+            df.groupby("Genre")["IMDB_Rating"]
+            .mean()
+            .sort_values(ascending=False)
+            .head(10)
+        )
         plt.figure(figsize=(8, 4))
         plt.barh(avg_rating.index, avg_rating.values)
         plt.xlabel("Average Rating")
@@ -138,55 +216,4 @@ with tab2:
         plt.gca().invert_yaxis()
         st.pyplot(plt)
     except Exception as e:
-        st.write(f"⚠️ Error loading analytics: {e}")
-
-
-# Chat history
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
-
-# User input
-if prompt := st.chat_input("Ask me movie questions"):
-    # Tone Detection
-    sentiment_prompt = f"Analyze the tone of this message: '{prompt}'. Reply with one word only: Positive, Neutral, or Confused."
-    try:
-        tone = llm.invoke(sentiment_prompt).content
-    except Exception:
-        tone = "Unknown"
-    st.caption(f"🗣️ User tone detected: {tone}")
-
-    messages_history = st.session_state.get("messages", [])[-20:]
-    history = "\n".join([f'{msg["role"]}: {msg["content"]}' for msg in messages_history]) or " "
-
-    with st.chat_message("Human"):
-        st.markdown(prompt)
-    st.session_state.messages.append({"role": "Human", "content": prompt})
-    
-    with st.chat_message("AI"):
-        response = chat_movie(prompt, history)
-        answer = response["answer"]
-        st.markdown(answer)
-        st.session_state.messages.append({"role": "AI", "content": answer})
-    
-    # Recommended Similar Movies
-        st.subheader("Recommended Similar Movies")
-        main_keyword = prompt.split()[0]
-        try:
-            similar_movies = qdrant.similarity_search(main_keyword, k=5)
-            for doc in similar_movies:
-                st.write(f"- {doc.page_content}")
-        except Exception as e:
-            st.warning(f"⚠️ Could not fetch recommendations: {e}")
-
-    with st.expander("**Movie Tool Calls:**"):
-        st.code(response["tool_messages"])
-
-    with st.expander("**Movie Chat History:**"):
-        st.code(history)
-
-    with st.expander("**Token Usage Details:**"):
-        st.code(f'input token : {response["total_input_tokens"]}\noutput token : {response["total_output_tokens"]}')
+        st.write(f"Error loading analytics: {e}")
