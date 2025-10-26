@@ -1,7 +1,7 @@
 pip>=25.0
 setuptools>=70.0
 wheel
-tiktoken==0.8.0
+tiktoken==0.9.0
 streamlit
 pandas
 qdrant-client
@@ -11,3 +11,4 @@ langchain-core
 langchain-openai
 langchain-qdrant
 langgraph
+matplotlib
